@@ -1,62 +1,97 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from PIL import ImageGrab
-import os
 import time
 import cv2
-import numpy as np
 import pyautogui
+import pytesseract
+pytesseract.pytesseract.tesseract_cmd = 'C:/Program Files/Tesseract-OCR/tesseract'
+TESSDATA_PREFIX = 'C:/Program Files/Tesseract-OCR'
 
+def find_mana(smth_to_find,where_find):
+    img = cv2.imread(where_find,0)
+    template = cv2.imread(smth_to_find,0)
 
-def find_mana(smth_to_find):
-    img = cv2.imread("screenshot.png")  # картинка, на которой ищем объект
-    gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  # преобразуем её в серуюш
-    template = cv2.imread(smth_to_find,
-                          cv2.IMREAD_GRAYSCALE)  # объект, который преобразуем в серый, и ищем его на gray_img
-    w, h = template.shape[::-1]  # инвертируем из (y,x) в (x,y)
-    result = cv2.matchTemplate(gray_img, template, cv2.TM_CCOEFF_NORMED)
-    loc = np.where(result >= 0.5)
-    pt=(0,0)
-    # рисует прямоугольник вокруг объекта
-    for pt in zip(*loc[::-1]):
-        cv2.rectangle(img, pt, (pt[0] + w, pt[1] + h), (0, 255, 0), 3)
+    result = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
 
-    return pt
+    # Get the best match position from the match result.
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+    print('Best match top left position: %s' % str(max_loc))
+    print('Best match confidence: %s' % max_val)
+
+    threshold = 0.8
+    top_left = (0, 0)
+    if max_val >= threshold:
+        needle_w = template.shape[1]
+        needle_h = template.shape[0]
+
+        top_left = max_loc
+        bottom_right = (top_left[0] + needle_w, top_left[1] + needle_h)
+
+        cv2.rectangle(img, top_left, bottom_right,
+                     color=(0, 255, 0), thickness=2, lineType=cv2.LINE_4)
+        cv2.imshow('Result', img)
+        cv2.waitKey()
+
+    return top_left
 
 def main():
-    # делает скриншот игры, закоментируйте, если понадобится, так как скриншот я выложил снизу, как и сам объект
 
     im = ImageGrab.grab()
-    output = im.save(os.getcwd() + '\\screenshot' + '.png', 'PNG')
-    print('\nСкриншот сделан и сохранён\n')
+    im.save('screenshot' + '.png', 'PNG')
+    print('Screen Analysis')
+    time.sleep(2)
 
-pyautogui.FAILSAFE=False
-take_pic=True
-while take_pic==True:
-    time.sleep(5)
-    main()
-    if find_mana('shop.png')!=(0,0):
-        main()
-        pyautogui.moveTo(find_mana('shop.png')[0]+10, find_mana('shop.png')[1]+10)
-        pyautogui.click()
-    elif find_mana('price.png') != (0, 0) and find_mana('credits.png') != (0, 0):
-        main()
-        pyautogui.moveTo(find_mana('price.png')[0], find_mana('price.png')[1])
-        im = ImageGrab.grab(bbox =(find_mana('price.png')[0]+75, find_mana('price.png')[1]-30, find_mana('credits.png')[0]-45, find_mana('price.png')[1]-10))
-        output = im.save(os.getcwd() + '\\price_number' + '.png', 'PNG')
-    elif find_mana('offers.png') != (0, 0):
-        main()
-        pyautogui.moveTo(find_mana('offers.png')[0] + 10, find_mana('offers.png')[1] + 10)
-        pyautogui.click()
-    elif find_mana('market.png') != (0, 0):
-        main()
-        pyautogui.moveTo(find_mana('market.png')[0] + 10, find_mana('market.png')[1] + 10)
-        pyautogui.click()
-    elif find_mana('Furni.png')!=(0,0):
-        main()
-        pyautogui.moveTo(find_mana('Furni.png')[0]+10, find_mana('Furni.png')[1]+10)
-        pyautogui.click()
+def analys():
+    pyautogui.FAILSAFE = False
+    take_pic = True
+
+    while take_pic == True:
+        try:
+            main()
+
+            if find_mana('offers.png', 'screenshot.png') != (0, 0) or find_mana('offers_pressed.png', 'screenshot.png'):
+                print('point 1')
+                while find_mana('price.png', 'screenshot.png') != (0, 0) and find_mana('credits.png', 'screenshot.png') != (0, 0):
+
+                    pyautogui.moveTo(find_mana('price.png', 'screenshot.png')[0], find_mana('price.png', 'screenshot.png')[1])
+
+                    string_num = ImageGrab.grab(bbox=(
+                    find_mana('price.png', 'screenshot.png')[0] + 75, find_mana('price.png', 'screenshot.png')[1] - 23,
+                    find_mana('price.png', 'screenshot.png')[0] + 75 + 100, find_mana('price.png', 'screenshot.png')[1] - 10))
+
+                    string_num.save( 'price_str' + '.png', 'PNG')
+                    img2 = string_num.crop((0, 0, find_mana('credits.png', 'price_str.png')[0], 13))
+                    img2.save( 'price_number' + '.png', 'PNG')
+                    img = cv2.imread('price_number.png')
+                    print('price = ' + pytesseract.image_to_string(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY),
+                                                                   config='--psm 10 --oem 3 -c tessedit_char_whitelist=0123456789'))
+                    time.sleep(10)
+                    main()
+                if find_mana('price.png', 'screenshot.png') == (0, 0):
+                    print('point 2')
+                    if find_mana('list.png', 'screenshot.png') != (0, 0):
+                        print('point 3')
+
+                        time.sleep(5)
+                    elif find_mana('offers.png', 'screenshot.png') != (0, 0):
+                        pyautogui.moveTo(find_mana('offers.png', 'screenshot.png')[0],
+                                         find_mana('offers.png', 'screenshot.png')[1]+5)
+                        pyautogui.click()
+                    main()
+
+            elif find_mana('market.png', 'screenshot.png') != (0, 0):
+
+                pyautogui.moveTo(find_mana('market.png', 'screenshot.png')[0] + 10, find_mana('market.png', 'screenshot.png')[1])
+                pyautogui.click()
+
+            elif find_mana('Furni.png', 'screenshot.png') != (0, 0):
+
+                pyautogui.moveTo(find_mana('Furni.png', 'screenshot.png')[0]+10, find_mana('Furni.png', 'screenshot.png')[1]+10)
+                pyautogui.click()
+
+            elif find_mana('shop.png', 'screenshot.png') != (0, 0):
+
+                pyautogui.moveTo(find_mana('shop.png', 'screenshot.png')[0]+10, find_mana('shop.png', 'screenshot.png')[1]+10)
+                pyautogui.click()
+
+        except:
+            print('something is wrong')
