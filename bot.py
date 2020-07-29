@@ -6,23 +6,23 @@ import pytesseract
 pytesseract.pytesseract.tesseract_cmd = 'Tesseract-OCR/tesseract'
 TESSDATA_PREFIX = 'Tesseract-OCR'
 
-def find_mana(smth_to_find,where_find):
-    img = cv2.imread(where_find,0)
-    template = cv2.imread(smth_to_find,0)
+
+def find_mana(smth_to_find, where_find):
+    img = cv2.imread(where_find, 0)
+    template = cv2.imread(smth_to_find, 0)
 
     result = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
 
     # Get the best match position from the match result.
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
 
-
     threshold = 0.8
     top_left = (0, 0)
     if max_val >= threshold:
         top_left = max_loc
 
-
     return top_left
+
 
 def get_price():
     pyautogui.moveTo(find_mana('price.png', 'screenshot.png')[0], find_mana('price.png', 'screenshot.png')[1])
@@ -41,12 +41,31 @@ def get_price():
     )
     return price
 
+
+def get_text():
+    pyautogui.moveTo(find_mana('price.png', 'screenshot.png')[0], find_mana('price.png', 'screenshot.png')[1] - 40)
+
+    string_num = ImageGrab.grab(bbox=(
+        find_mana('price.png', 'screenshot.png')[0], find_mana('price.png', 'screenshot.png')[1]-35,
+        find_mana('price.png', 'screenshot.png')[0] + 150, find_mana('price.png', 'screenshot.png')[1] + 25-35))
+
+    string_num.save('name_str' + '.png', 'PNG')
+
+    img = cv2.imread('name_str.png')
+    price = pytesseract.image_to_string(
+        cv2.cvtColor(img, cv2.COLOR_BGR2GRAY),
+        config='--psm 7 --oem 3 '
+    )
+    return price
+
+
 def main():
 
     im = ImageGrab.grab()
     im.save('screenshot' + '.png', 'PNG')
 
     time.sleep(5)
+
 
 def analys():
     pyautogui.FAILSAFE = False
@@ -71,11 +90,23 @@ def analys():
                         main()
 
                     elif price == 0:
+                        item = get_text()
+                        print(item)
                         price = get_price()
                         print('price = ' + price)
+                        print('The price and item right? Press y or n')
+                        response = input()
+                        if response == 'n':
+                            price = 0
+                            item = None
+                            print('Well, let\'s try again and contact developer')
+                        elif response == 'y':
+                            print('Ok, got it')
+
+                        else:
+                            print('Sorry, wrong letter')
                         time.sleep(10)
                         main()
-
 
                 if find_mana('price.png', 'screenshot.png') == (0, 0):
 
