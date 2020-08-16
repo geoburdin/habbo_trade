@@ -9,11 +9,12 @@ import worker
 class Form():
 
     def __init__(self, url):
-        self.url=url
+        self.url = url
 
         self.app = QApplication(sys.argv)
         self.web = QWebEngineView()
         QWebEngineSettings.globalSettings().setAttribute(QWebEngineSettings.PluginsEnabled, True)
+
         self.web.setWindowFlags(PyQt5.QtCore.Qt.WindowStaysOnTopHint)
         self.web.load(QUrl(self.url))
         self.web.setWindowTitle('habbo')
